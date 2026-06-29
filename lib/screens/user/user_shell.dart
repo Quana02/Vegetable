@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 
-import '../../data/mock_data.dart';
 import '../../models/cart_item.dart';
+import '../../models/user_account.dart';
 import '../../models/vegetable.dart';
+import '../../services/api_client.dart';
 import '../../widgets/adaptive_role_scaffold.dart';
 import 'cart_screen.dart';
 import 'home_screen.dart';
 import 'profile_screen.dart';
 
 class UserShell extends StatefulWidget {
-  const UserShell({super.key});
+  const UserShell({super.key, required this.account});
+
+  final UserAccount account;
 
   @override
   State<UserShell> createState() => _UserShellState();
@@ -17,34 +20,81 @@ class UserShell extends StatefulWidget {
 
 class _UserShellState extends State<UserShell> {
   int _index = 0;
-  late final List<CartItem> _cart = mockCart
-      .map(
-        (item) => CartItem(vegetable: item.vegetable, quantity: item.quantity),
-      )
-      .toList();
+  List<CartItem> _cart = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCart();
+  }
+
+  Future<void> _loadCart() async {
+    try {
+      final cart = await apiClient.getCart(widget.account.numericId);
+      if (mounted) setState(() => _cart = cart);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    }
+  }
 
   int get _cartCount => _cart.fold(0, (sum, item) => sum + item.quantity);
 
-  void _addToCart(Vegetable vegetable, int quantity) {
-    setState(() {
-      final found = _cart
-          .where((item) => item.vegetable.id == vegetable.id)
-          .firstOrNull;
-      if (found != null) {
-        found.quantity += quantity;
-      } else {
-        _cart.add(CartItem(vegetable: vegetable, quantity: quantity));
-      }
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Đã thêm ${vegetable.name} vào giỏ'),
-        action: SnackBarAction(
-          label: 'Xem giỏ',
-          onPressed: () => setState(() => _index = 1),
+  void _addToCart(Vegetable vegetable, int quantity) async {
+    try {
+      final cart = await apiClient.addCartItem(
+        widget.account.numericId,
+        vegetable,
+        quantity,
+      );
+      if (!mounted) return;
+      setState(() => _cart = cart);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Đã thêm ${vegetable.name} vào giỏ'),
+          action: SnackBarAction(
+            label: 'Xem giỏ',
+            onPressed: () => setState(() => _index = 1),
+          ),
         ),
-      ),
-    );
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    }
+  }
+
+  Future<void> _changeQuantity(CartItem item, int quantity) async {
+    try {
+      final cart = quantity <= 0
+          ? await apiClient.removeCartItem(
+              widget.account.numericId,
+              item.vegetable.id,
+            )
+          : await apiClient.updateCartItem(
+              widget.account.numericId,
+              item.vegetable.id,
+              quantity,
+            );
+      if (mounted) setState(() => _cart = cart);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    }
+  }
+
+  Future<void> _checkout() async {
+    await apiClient.checkout(widget.account);
+    await _loadCart();
   }
 
   @override
@@ -56,10 +106,11 @@ class _UserShellState extends State<UserShell> {
       ),
       CartScreen(
         cart: _cart,
-        onChanged: () => setState(() {}),
+        onQuantityChanged: _changeQuantity,
+        onCheckout: _checkout,
         onContinueShopping: () => setState(() => _index = 0),
       ),
-      const UserProfileScreen(),
+      UserProfileScreen(account: widget.account),
     ];
     const titles = ['Rau tươi hôm nay', 'Giỏ hàng của bạn', 'Tài khoản'];
 

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../data/mock_data.dart';
 import '../../models/vegetable.dart';
+import '../../services/api_client.dart';
 import '../../widgets/network_vegetable_image.dart';
 import '../../widgets/price_text.dart';
 import '../../widgets/responsive_content.dart';
@@ -15,8 +15,31 @@ class VegetableManagementScreen extends StatefulWidget {
 }
 
 class _VegetableManagementScreenState extends State<VegetableManagementScreen> {
-  late final List<Vegetable> _vegetables = List.of(mockVegetables);
+  List<Vegetable> _vegetables = [];
   String _query = '';
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final vegetables = await apiClient.getVegetables(includeInactive: true);
+      if (mounted) setState(() => _vegetables = vegetables);
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   List<Vegetable> get _filtered => _vegetables
       .where((item) => item.name.toLowerCase().contains(_query.toLowerCase()))
@@ -28,14 +51,26 @@ class _VegetableManagementScreenState extends State<VegetableManagementScreen> {
       builder: (_) => _VegetableFormDialog(vegetable: vegetable),
     );
     if (result == null) return;
-    setState(() {
-      final index = _vegetables.indexWhere((item) => item.id == result.id);
-      if (index >= 0) {
-        _vegetables[index] = result;
-      } else {
-        _vegetables.insert(0, result);
+    try {
+      final saved = vegetable == null
+          ? await apiClient.createVegetable(result)
+          : await apiClient.updateVegetable(result);
+      if (!mounted) return;
+      setState(() {
+        final index = _vegetables.indexWhere((item) => item.id == saved.id);
+        if (index >= 0) {
+          _vegetables[index] = saved;
+        } else {
+          _vegetables.insert(0, saved);
+        }
+      });
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
       }
-    });
+    }
   }
 
   Future<void> _delete(Vegetable vegetable) async {
@@ -58,9 +93,20 @@ class _VegetableManagementScreenState extends State<VegetableManagementScreen> {
       ),
     );
     if (confirmed == true) {
-      setState(
-        () => _vegetables.removeWhere((item) => item.id == vegetable.id),
-      );
+      try {
+        await apiClient.deleteVegetable(vegetable.id);
+        if (mounted) {
+          setState(
+            () => _vegetables.removeWhere((item) => item.id == vegetable.id),
+          );
+        }
+      } catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(error.toString())));
+        }
+      }
     }
   }
 
@@ -92,90 +138,108 @@ class _VegetableManagementScreenState extends State<VegetableManagementScreen> {
           ),
           const SizedBox(height: 18),
           Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                if (constraints.maxWidth >= 760) {
-                  return _ProductTable(
-                    vegetables: _filtered,
-                    onEdit: _openForm,
-                    onDelete: _delete,
-                  );
-                }
-                return ListView.separated(
-                  itemCount: _filtered.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (context, index) {
-                    final item = _filtered[index];
-                    return Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Row(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: SizedBox(
-                                width: 68,
-                                height: 68,
-                                child: NetworkVegetableImage(
-                                  url: item.imageUrl,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(_error!),
+                        const SizedBox(height: 12),
+                        FilledButton.icon(
+                          onPressed: _load,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Thử lại'),
+                        ),
+                      ],
+                    ),
+                  )
+                : LayoutBuilder(
+                    builder: (context, constraints) {
+                      if (constraints.maxWidth >= 760) {
+                        return _ProductTable(
+                          vegetables: _filtered,
+                          onEdit: _openForm,
+                          onDelete: _delete,
+                        );
+                      }
+                      return ListView.separated(
+                        itemCount: _filtered.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 10),
+                        itemBuilder: (context, index) {
+                          final item = _filtered[index];
+                          return Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Row(
                                 children: [
-                                  Text(
-                                    item.name,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w800,
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: SizedBox(
+                                      width: 68,
+                                      height: 68,
+                                      child: NetworkVegetableImage(
+                                        url: item.imageUrl,
+                                      ),
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
-                                  PriceText(item.price, unit: item.unit),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    'Kho: ${item.stock}',
-                                    style: const TextStyle(
-                                      color: Colors.black54,
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          item.name,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        PriceText(item.price, unit: item.unit),
+                                        const SizedBox(height: 3),
+                                        Text(
+                                          'Kho: ${item.stock}',
+                                          style: const TextStyle(
+                                            color: Colors.black54,
+                                          ),
+                                        ),
+                                      ],
                                     ),
+                                  ),
+                                  PopupMenuButton<String>(
+                                    onSelected: (value) => value == 'edit'
+                                        ? _openForm(item)
+                                        : _delete(item),
+                                    itemBuilder: (_) => const [
+                                      PopupMenuItem(
+                                        value: 'edit',
+                                        child: ListTile(
+                                          leading: Icon(Icons.edit_outlined),
+                                          title: Text('Sửa'),
+                                        ),
+                                      ),
+                                      PopupMenuItem(
+                                        value: 'delete',
+                                        child: ListTile(
+                                          leading: Icon(
+                                            Icons.delete_outline,
+                                            color: Colors.red,
+                                          ),
+                                          title: Text('Xóa'),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
                             ),
-                            PopupMenuButton<String>(
-                              onSelected: (value) => value == 'edit'
-                                  ? _openForm(item)
-                                  : _delete(item),
-                              itemBuilder: (_) => const [
-                                PopupMenuItem(
-                                  value: 'edit',
-                                  child: ListTile(
-                                    leading: Icon(Icons.edit_outlined),
-                                    title: Text('Sửa'),
-                                  ),
-                                ),
-                                PopupMenuItem(
-                                  value: 'delete',
-                                  child: ListTile(
-                                    leading: Icon(
-                                      Icons.delete_outline,
-                                      color: Colors.red,
-                                    ),
-                                    title: Text('Xóa'),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -294,7 +358,9 @@ class _VegetableFormDialogState extends State<_VegetableFormDialog> {
     text: widget.vegetable?.description,
   );
   late final TextEditingController _imageUrl = TextEditingController(
-    text: widget.vegetable?.imageUrl ?? mockVegetables.first.imageUrl,
+    text:
+        widget.vegetable?.imageUrl ??
+        'https://images.unsplash.com/photo-1576045057995-568f588f82fb?w=900',
   );
 
   @override
@@ -318,9 +384,10 @@ class _VegetableFormDialogState extends State<_VegetableFormDialog> {
     Navigator.pop(
       context,
       Vegetable(
-        id: widget.vegetable?.id ?? 'v${DateTime.now().millisecondsSinceEpoch}',
+        id: widget.vegetable?.id ?? '0',
         name: _name.text.trim(),
         category: _category.text.trim(),
+        categoryId: _categoryId(_category.text.trim()),
         price: double.parse(_price.text),
         unit: _unit.text.trim(),
         description: _description.text.trim(),
@@ -423,4 +490,11 @@ class _VegetableFormDialogState extends State<_VegetableFormDialog> {
       (value?.trim().isEmpty ?? true) ? 'Không được để trống' : null;
   String? _number(String? value) =>
       double.tryParse(value ?? '') == null ? 'Số chưa hợp lệ' : null;
+
+  int _categoryId(String category) => switch (category.toLowerCase()) {
+    'rau củ' => 2,
+    'rau quả' => 3,
+    'rau hoa' => 4,
+    _ => 1,
+  };
 }

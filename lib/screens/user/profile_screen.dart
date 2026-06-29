@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../models/user_account.dart';
 import '../../widgets/responsive_content.dart';
 import '../auth/login_screen.dart';
 
 class UserProfileScreen extends StatelessWidget {
-  const UserProfileScreen({super.key});
+  const UserProfileScreen({super.key, required this.account});
+
+  final UserAccount account;
 
   void _logout(BuildContext context) {
     Navigator.of(context).pushAndRemoveUntil(
@@ -38,21 +41,21 @@ class UserProfileScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 18),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Nguyễn Minh Anh',
-                          style: TextStyle(
+                          account.name,
+                          style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w900,
                           ),
                         ),
                         SizedBox(height: 5),
                         Text(
-                          'minhanh@gmail.com',
-                          style: TextStyle(color: Colors.black54),
+                          account.email,
+                          style: const TextStyle(color: Colors.black54),
                         ),
                       ],
                     ),

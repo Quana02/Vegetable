@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../services/api_client.dart';
+
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
@@ -9,11 +11,16 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscure = true;
+  bool _loading = false;
 
   @override
   void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -51,6 +58,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 28),
                     TextFormField(
+                      controller: _nameController,
                       decoration: const InputDecoration(
                         labelText: 'Họ và tên',
                         prefixIcon: Icon(Icons.person_outline),
@@ -61,6 +69,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 14),
                     TextFormField(
+                      controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       decoration: const InputDecoration(
                         labelText: 'Email',
@@ -104,19 +113,40 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 24),
                     FilledButton(
-                      onPressed: () {
-                        if (_formKey.currentState!.validate()) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Tạo tài khoản thành công! Hãy đăng nhập.',
-                              ),
-                            ),
-                          );
-                          Navigator.pop(context);
-                        }
-                      },
-                      child: const Text('Đăng ký'),
+                      onPressed: _loading
+                          ? null
+                          : () async {
+                              if (!_formKey.currentState!.validate()) return;
+                              setState(() => _loading = true);
+                              try {
+                                await apiClient.register(
+                                  _nameController.text.trim(),
+                                  _emailController.text.trim(),
+                                  _passwordController.text,
+                                );
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Tạo tài khoản thành công!'),
+                                  ),
+                                );
+                                Navigator.pop(context);
+                              } catch (error) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(error.toString())),
+                                  );
+                                }
+                              } finally {
+                                if (mounted) setState(() => _loading = false);
+                              }
+                            },
+                      child: _loading
+                          ? const SizedBox.square(
+                              dimension: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Đăng ký'),
                     ),
                     const SizedBox(height: 14),
                     TextButton.icon(

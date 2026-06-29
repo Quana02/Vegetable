@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../../models/user_account.dart';
 import '../../widgets/adaptive_role_scaffold.dart';
 import 'staff_dashboard_screen.dart';
 import 'staff_profile_screen.dart';
 import 'vegetable_management_screen.dart';
 
 class StaffShell extends StatefulWidget {
-  const StaffShell({super.key});
+  const StaffShell({super.key, required this.account});
+
+  final UserAccount account;
 
   @override
   State<StaffShell> createState() => _StaffShellState();
@@ -37,10 +40,10 @@ class _StaffShellState extends State<StaffShell> {
       ],
       body: IndexedStack(
         index: _index,
-        children: const [
-          StaffDashboardScreen(),
-          VegetableManagementScreen(),
-          StaffProfileScreen(),
+        children: [
+          const StaffDashboardScreen(),
+          const VegetableManagementScreen(),
+          StaffProfileScreen(account: widget.account),
         ],
       ),
     );

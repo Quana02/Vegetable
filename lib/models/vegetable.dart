@@ -7,7 +7,9 @@ class Vegetable {
     required this.unit,
     required this.description,
     required this.imageUrl,
+    this.categoryId = 0,
     this.stock = 0,
+    this.isActive = true,
   });
 
   final String id;
@@ -17,7 +19,34 @@ class Vegetable {
   final String unit;
   final String description;
   final String imageUrl;
+  final int categoryId;
   final int stock;
+  final bool isActive;
+
+  factory Vegetable.fromJson(Map<String, dynamic> json) => Vegetable(
+    id: json['id'].toString(),
+    name: json['name'] as String,
+    category: (json['categoryName'] ?? json['category'] ?? '') as String,
+    categoryId: (json['categoryId'] as num?)?.toInt() ?? 0,
+    price: (json['price'] as num).toDouble(),
+    unit: json['unit'] as String,
+    description: (json['description'] ?? '') as String,
+    imageUrl: (json['imageUrl'] ?? '') as String,
+    stock: (json['stock'] as num?)?.toInt() ?? 0,
+    isActive: json['isActive'] as bool? ?? true,
+  );
+
+  Map<String, dynamic> toApiJson() => {
+    'categoryId': categoryId,
+    'name': name,
+    'slug': null,
+    'description': description,
+    'price': price,
+    'unit': unit,
+    'stock': stock,
+    'imageUrl': imageUrl,
+    'isActive': isActive,
+  };
 
   Vegetable copyWith({
     String? name,
@@ -26,7 +55,9 @@ class Vegetable {
     String? unit,
     String? description,
     String? imageUrl,
+    int? categoryId,
     int? stock,
+    bool? isActive,
   }) {
     return Vegetable(
       id: id,
@@ -36,7 +67,9 @@ class Vegetable {
       unit: unit ?? this.unit,
       description: description ?? this.description,
       imageUrl: imageUrl ?? this.imageUrl,
+      categoryId: categoryId ?? this.categoryId,
       stock: stock ?? this.stock,
+      isActive: isActive ?? this.isActive,
     );
   }
 }

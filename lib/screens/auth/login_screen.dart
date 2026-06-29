@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/user_account.dart';
+import '../../services/api_client.dart';
 import '../../theme/app_theme.dart';
 import '../admin/admin_shell.dart';
 import '../staff/staff_shell.dart';
@@ -20,6 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController(text: '123456');
   UserRole _role = UserRole.user;
   bool _obscurePassword = true;
+  bool _loading = false;
 
   @override
   void dispose() {
@@ -28,16 +30,29 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _login() {
+  Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
-    final page = switch (_role) {
-      UserRole.user => const UserShell(),
-      UserRole.staff => const StaffShell(),
-      UserRole.admin => const AdminShell(),
-    };
-    Navigator.of(
-      context,
-    ).pushReplacement(MaterialPageRoute(builder: (_) => page));
+    setState(() => _loading = true);
+    try {
+      final account = await apiClient.demoLogin(_role);
+      if (!mounted) return;
+      final page = switch (account.role) {
+        UserRole.user => UserShell(account: account),
+        UserRole.staff => StaffShell(account: account),
+        UserRole.admin => AdminShell(account: account),
+      };
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: (_) => page));
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
@@ -147,8 +162,15 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 24),
                           FilledButton(
-                            onPressed: _login,
-                            child: const Text('Đăng nhập'),
+                            onPressed: _loading ? null : _login,
+                            child: _loading
+                                ? const SizedBox.square(
+                                    dimension: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Text('Đăng nhập'),
                           ),
                           const SizedBox(height: 18),
                           const Row(
@@ -163,7 +185,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 18),
                           OutlinedButton.icon(
-                            onPressed: _login,
+                            onPressed: _loading ? null : _login,
                             icon: const Text(
                               'G',
                               style: TextStyle(

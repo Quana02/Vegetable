@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="DataAccess/DataAccess.csproj" Id="c25ae642-e0c0-406a-b505-3f6dc5c68f3f" />
+  <Project Path="Repositories/Repositories.csproj" Id="5c4c1038-16d4-466a-ac1b-b44acc1ea5c4" />
+  <Project Path="Services/Services.csproj" Id="aac44cd9-5722-4333-81a1-503161a15e7c" />
+  <Project Path="vegetable_api/vegetable_api.csproj" />
+</Solution>

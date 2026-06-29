@@ -9,18 +9,32 @@ class CartScreen extends StatelessWidget {
   const CartScreen({
     super.key,
     required this.cart,
-    required this.onChanged,
+    required this.onQuantityChanged,
+    required this.onCheckout,
     required this.onContinueShopping,
   });
 
   final List<CartItem> cart;
-  final VoidCallback onChanged;
+  final Future<void> Function(CartItem item, int quantity) onQuantityChanged;
+  final Future<void> Function() onCheckout;
   final VoidCallback onContinueShopping;
 
   double get subtotal => cart.fold(0, (sum, item) => sum + item.total);
   double get shipping => subtotal >= 200000 || subtotal == 0 ? 0 : 25000;
 
-  void _checkout(BuildContext context) {
+  Future<void> _checkout(BuildContext context) async {
+    try {
+      await onCheckout();
+      if (!context.mounted) return;
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+      return;
+    }
+    if (!context.mounted) return;
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
@@ -31,7 +45,7 @@ class CartScreen extends StatelessWidget {
         ),
         title: const Text('Đặt hàng thành công!', textAlign: TextAlign.center),
         content: const Text(
-          'Đây là luồng thanh toán mẫu. Đơn hàng của bạn đã được ghi nhận.',
+          'Đơn hàng đã được lưu trên hệ thống và tồn kho đã được cập nhật.',
           textAlign: TextAlign.center,
         ),
         actionsAlignment: MainAxisAlignment.center,
@@ -130,14 +144,10 @@ class CartScreen extends StatelessWidget {
                               children: [
                                 _QuantityButton(
                                   icon: Icons.remove,
-                                  onPressed: () {
-                                    if (item.quantity > 1) {
-                                      item.quantity--;
-                                    } else {
-                                      cart.removeAt(index);
-                                    }
-                                    onChanged();
-                                  },
+                                  onPressed: () => onQuantityChanged(
+                                    item,
+                                    item.quantity - 1,
+                                  ),
                                 ),
                                 SizedBox(
                                   width: 38,
@@ -151,10 +161,10 @@ class CartScreen extends StatelessWidget {
                                 ),
                                 _QuantityButton(
                                   icon: Icons.add,
-                                  onPressed: () {
-                                    item.quantity++;
-                                    onChanged();
-                                  },
+                                  onPressed: () => onQuantityChanged(
+                                    item,
+                                    item.quantity + 1,
+                                  ),
                                 ),
                               ],
                             ),
@@ -165,10 +175,7 @@ class CartScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           IconButton(
-                            onPressed: () {
-                              cart.removeAt(index);
-                              onChanged();
-                            },
+                            onPressed: () => onQuantityChanged(item, 0),
                             icon: const Icon(Icons.delete_outline_rounded),
                             color: Colors.redAccent,
                             tooltip: 'Xóa',

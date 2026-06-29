@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../data/mock_data.dart';
 import '../../models/user_account.dart';
+import '../../services/api_client.dart';
 import '../../widgets/responsive_content.dart';
 
 class ManageAccountsScreen extends StatefulWidget {
@@ -12,9 +12,32 @@ class ManageAccountsScreen extends StatefulWidget {
 }
 
 class _ManageAccountsScreenState extends State<ManageAccountsScreen> {
-  late final List<UserAccount> _accounts = List.of(mockAccounts);
+  List<UserAccount> _accounts = [];
   String _query = '';
   UserRole? _roleFilter;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final accounts = await apiClient.getAccounts();
+      if (mounted) setState(() => _accounts = accounts);
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   List<UserAccount> get _filtered => _accounts.where((account) {
     final query = _query.toLowerCase();
@@ -29,14 +52,26 @@ class _ManageAccountsScreenState extends State<ManageAccountsScreen> {
       builder: (_) => _AccountFormDialog(account: account),
     );
     if (result == null) return;
-    setState(() {
-      final index = _accounts.indexWhere((item) => item.id == result.id);
-      if (index >= 0) {
-        _accounts[index] = result;
-      } else {
-        _accounts.insert(0, result);
+    try {
+      final saved = account == null
+          ? await apiClient.createAccount(result)
+          : await apiClient.updateAccount(result);
+      if (!mounted) return;
+      setState(() {
+        final index = _accounts.indexWhere((item) => item.id == saved.id);
+        if (index >= 0) {
+          _accounts[index] = saved;
+        } else {
+          _accounts.insert(0, saved);
+        }
+      });
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
       }
-    });
+    }
   }
 
   Future<void> _delete(UserAccount account) async {
@@ -59,15 +94,38 @@ class _ManageAccountsScreenState extends State<ManageAccountsScreen> {
       ),
     );
     if (confirmed == true) {
-      setState(() => _accounts.removeWhere((item) => item.id == account.id));
+      try {
+        await apiClient.deleteAccount(account.id);
+        if (mounted) {
+          setState(
+            () => _accounts.removeWhere((item) => item.id == account.id),
+          );
+        }
+      } catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(error.toString())));
+        }
+      }
     }
   }
 
-  void _changeRole(UserAccount account, UserRole role) {
-    setState(() {
-      final index = _accounts.indexWhere((item) => item.id == account.id);
-      _accounts[index] = account.copyWith(role: role);
-    });
+  void _changeRole(UserAccount account, UserRole role) async {
+    try {
+      final saved = await apiClient.updateAccount(account.copyWith(role: role));
+      if (!mounted) return;
+      setState(() {
+        final index = _accounts.indexWhere((item) => item.id == saved.id);
+        _accounts[index] = saved;
+      });
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    }
   }
 
   @override
@@ -134,75 +192,93 @@ class _ManageAccountsScreenState extends State<ManageAccountsScreen> {
           ),
           const SizedBox(height: 18),
           Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                if (constraints.maxWidth >= 850) {
-                  return _AccountTable(
-                    accounts: _filtered,
-                    onEdit: _openForm,
-                    onDelete: _delete,
-                    onRoleChanged: _changeRole,
-                  );
-                }
-                return ListView.separated(
-                  itemCount: _filtered.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (context, index) {
-                    final account = _filtered[index];
-                    return Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Row(
-                          children: [
-                            _AccountAvatar(account: account),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(_error!),
+                        const SizedBox(height: 12),
+                        FilledButton.icon(
+                          onPressed: _load,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Thử lại'),
+                        ),
+                      ],
+                    ),
+                  )
+                : LayoutBuilder(
+                    builder: (context, constraints) {
+                      if (constraints.maxWidth >= 850) {
+                        return _AccountTable(
+                          accounts: _filtered,
+                          onEdit: _openForm,
+                          onDelete: _delete,
+                          onRoleChanged: _changeRole,
+                        );
+                      }
+                      return ListView.separated(
+                        itemCount: _filtered.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 10),
+                        itemBuilder: (context, index) {
+                          final account = _filtered[index];
+                          return Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: Row(
                                 children: [
-                                  Text(
-                                    account.name,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w800,
+                                  _AccountAvatar(account: account),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          account.name,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 3),
+                                        Text(
+                                          account.email,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            color: Colors.black54,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 7),
+                                        _RoleChip(role: account.role),
+                                      ],
                                     ),
                                   ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    account.email,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: Colors.black54,
-                                    ),
+                                  PopupMenuButton<String>(
+                                    onSelected: (value) => value == 'edit'
+                                        ? _openForm(account)
+                                        : _delete(account),
+                                    itemBuilder: (_) => const [
+                                      PopupMenuItem(
+                                        value: 'edit',
+                                        child: Text('Sửa tài khoản'),
+                                      ),
+                                      PopupMenuItem(
+                                        value: 'delete',
+                                        child: Text('Xóa tài khoản'),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(height: 7),
-                                  _RoleChip(role: account.role),
                                 ],
                               ),
                             ),
-                            PopupMenuButton<String>(
-                              onSelected: (value) => value == 'edit'
-                                  ? _openForm(account)
-                                  : _delete(account),
-                              itemBuilder: (_) => const [
-                                PopupMenuItem(
-                                  value: 'edit',
-                                  child: Text('Sửa tài khoản'),
-                                ),
-                                PopupMenuItem(
-                                  value: 'delete',
-                                  child: Text('Xóa tài khoản'),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -469,9 +545,7 @@ class _AccountFormDialogState extends State<_AccountFormDialog> {
               Navigator.pop(
                 context,
                 UserAccount(
-                  id:
-                      widget.account?.id ??
-                      'u${DateTime.now().millisecondsSinceEpoch}',
+                  id: widget.account?.id ?? '0',
                   name: _name.text.trim(),
                   email: _email.text.trim(),
                   role: _role,

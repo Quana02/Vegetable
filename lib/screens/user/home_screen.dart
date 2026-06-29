@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../data/mock_data.dart';
 import '../../models/vegetable.dart';
+import '../../services/api_client.dart';
 import '../../widgets/responsive_content.dart';
 import '../../widgets/vegetable_card.dart';
 import 'vegetable_detail_screen.dart';
@@ -26,9 +26,33 @@ class _HomeScreenState extends State<HomeScreen> {
   String _query = '';
   String _category = 'Tất cả';
   PriceFilter _priceFilter = PriceFilter.all;
+  List<Vegetable> _vegetables = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVegetables();
+  }
+
+  Future<void> _loadVegetables() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final vegetables = await apiClient.getVegetables();
+      if (mounted) setState(() => _vegetables = vegetables);
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   List<Vegetable> get _filtered {
-    return mockVegetables.where((vegetable) {
+    return _vegetables.where((vegetable) {
       final matchText = vegetable.name.toLowerCase().contains(
         _query.toLowerCase(),
       );
@@ -62,7 +86,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final categories = [
       'Tất cả',
-      ...{for (final item in mockVegetables) item.category},
+      ...{for (final item in _vegetables) item.category},
     ];
     return ResponsiveContent(
       child: CustomScrollView(
@@ -196,7 +220,30 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-          if (_filtered.isEmpty)
+          if (_loading)
+            const SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_error != null)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(_error!, textAlign: TextAlign.center),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      onPressed: _loadVegetables,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Thử lại'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (_filtered.isEmpty)
             const SliverFillRemaining(
               hasScrollBody: false,
               child: Center(child: Text('Không tìm thấy sản phẩm phù hợp.')),

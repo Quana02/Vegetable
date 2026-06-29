@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../../models/user_account.dart';
 import '../../widgets/adaptive_role_scaffold.dart';
 import 'admin_dashboard_screen.dart';
 import 'admin_profile_screen.dart';
 import 'manage_accounts_screen.dart';
 
 class AdminShell extends StatefulWidget {
-  const AdminShell({super.key});
+  const AdminShell({super.key, required this.account});
+
+  final UserAccount account;
 
   @override
   State<AdminShell> createState() => _AdminShellState();
@@ -45,10 +48,10 @@ class _AdminShellState extends State<AdminShell> {
       ],
       body: IndexedStack(
         index: _index,
-        children: const [
-          AdminDashboardScreen(),
-          ManageAccountsScreen(),
-          AdminProfileScreen(),
+        children: [
+          const AdminDashboardScreen(),
+          const ManageAccountsScreen(),
+          AdminProfileScreen(account: widget.account),
         ],
       ),
     );
