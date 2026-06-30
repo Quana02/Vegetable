@@ -10,6 +10,7 @@ class Vegetable {
     this.categoryId = 0,
     this.stock = 0,
     this.isActive = true,
+    this.createdAt,
   });
 
   final String id;
@@ -22,6 +23,7 @@ class Vegetable {
   final int categoryId;
   final int stock;
   final bool isActive;
+  final DateTime? createdAt;
 
   factory Vegetable.fromJson(Map<String, dynamic> json) => Vegetable(
     id: json['id'].toString(),
@@ -34,6 +36,7 @@ class Vegetable {
     imageUrl: (json['imageUrl'] ?? '') as String,
     stock: (json['stock'] as num?)?.toInt() ?? 0,
     isActive: json['isActive'] as bool? ?? true,
+    createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
   );
 
   Map<String, dynamic> toApiJson() => {
@@ -58,6 +61,7 @@ class Vegetable {
     int? categoryId,
     int? stock,
     bool? isActive,
+    DateTime? createdAt,
   }) {
     return Vegetable(
       id: id,
@@ -70,6 +74,7 @@ class Vegetable {
       categoryId: categoryId ?? this.categoryId,
       stock: stock ?? this.stock,
       isActive: isActive ?? this.isActive,
+      createdAt: createdAt ?? this.createdAt,
     );
   }
 }

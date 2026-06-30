@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:signalr_netcore/signalr_client.dart';
 
 import '../models/cart_item.dart';
 import '../models/user_account.dart';
@@ -20,6 +21,28 @@ class ApiClient {
   ApiClient({http.Client? client}) : _client = client ?? http.Client();
 
   final http.Client _client;
+  HubConnection? _hubConnection;
+  
+  final realtimeUpdateNotifier = ValueNotifier<int>(0);
+
+  Future<void> startRealtimeConnection() async {
+    if (_hubConnection != null && _hubConnection!.state == HubConnectionState.Connected) return;
+
+    _hubConnection = HubConnectionBuilder()
+        .withUrl('$baseUrl/hubs/app')
+        .withAutomaticReconnect()
+        .build();
+
+    _hubConnection!.on('VegetablesUpdated', (_) {
+      realtimeUpdateNotifier.value++;
+    });
+
+    try {
+      await _hubConnection!.start();
+    } catch (e) {
+      debugPrint('SignalR Error: $e');
+    }
+  }
 
   static String get baseUrl {
     const configured = String.fromEnvironment('API_BASE_URL');
@@ -72,6 +95,11 @@ class ApiClient {
       _uri('/api/vegetables', {'includeInactive': '$includeInactive'}),
     );
     return _decodeList(response).map(Vegetable.fromJson).toList();
+  }
+
+  Future<Vegetable> getVegetableById(String id) async {
+    final response = await _client.get(_uri('/api/vegetables/$id'));
+    return Vegetable.fromJson(_decodeObject(response));
   }
 
   Future<Vegetable> createVegetable(Vegetable vegetable) async {

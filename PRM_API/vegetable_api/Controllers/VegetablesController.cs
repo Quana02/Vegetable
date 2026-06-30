@@ -1,13 +1,15 @@
 using DataAccess.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Services;
 using vegetable_api.Contracts;
+using vegetable_api.Hubs;
 
 namespace vegetable_api.Controllers;
 
 [ApiController]
 [Route("api/vegetables")]
-public class VegetablesController(IVegetableService service) : ControllerBase
+public class VegetablesController(IVegetableService service, IHubContext<AppHub> hubContext) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<VegetableDto>>> GetAll(
@@ -30,6 +32,7 @@ public class VegetablesController(IVegetableService service) : ControllerBase
         CancellationToken cancellationToken)
     {
         var result = await service.CreateAsync(ToEntity(request), cancellationToken);
+        await hubContext.Clients.All.SendAsync("VegetablesUpdated", cancellationToken: cancellationToken);
         return CreatedAtAction(nameof(Get), new { id = result.Id }, result.ToDto());
     }
 
@@ -37,13 +40,18 @@ public class VegetablesController(IVegetableService service) : ControllerBase
     public async Task<ActionResult<VegetableDto>> Update(
         long id,
         VegetableUpsertRequest request,
-        CancellationToken cancellationToken) =>
-        Ok((await service.UpdateAsync(id, ToEntity(request), cancellationToken)).ToDto());
+        CancellationToken cancellationToken)
+    {
+        var result = await service.UpdateAsync(id, ToEntity(request), cancellationToken);
+        await hubContext.Clients.All.SendAsync("VegetablesUpdated", cancellationToken: cancellationToken);
+        return Ok(result.ToDto());
+    }
 
     [HttpDelete("{id:long}")]
     public async Task<IActionResult> Delete(long id, CancellationToken cancellationToken)
     {
         await service.DeleteAsync(id, cancellationToken);
+        await hubContext.Clients.All.SendAsync("VegetablesUpdated", cancellationToken: cancellationToken);
         return NoContent();
     }
 

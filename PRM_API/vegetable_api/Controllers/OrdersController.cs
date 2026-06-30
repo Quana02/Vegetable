@@ -1,12 +1,14 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Services;
 using vegetable_api.Contracts;
+using vegetable_api.Hubs;
 
 namespace vegetable_api.Controllers;
 
 [ApiController]
 [Route("api/orders")]
-public class OrdersController(IOrderService service) : ControllerBase
+public class OrdersController(IOrderService service, IHubContext<AppHub> hubContext) : ControllerBase
 {
     [HttpGet("account/{accountId:long}")]
     public async Task<ActionResult<IReadOnlyList<OrderDto>>> GetByAccount(
@@ -30,6 +32,7 @@ public class OrdersController(IOrderService service) : ControllerBase
             request.PaymentMethod,
             request.CustomerNote,
             cancellationToken);
+        await hubContext.Clients.All.SendAsync("VegetablesUpdated", cancellationToken: cancellationToken);
         return CreatedAtAction(nameof(Get), new { id = order.Id }, order.ToDto());
     }
 
@@ -37,6 +40,13 @@ public class OrdersController(IOrderService service) : ControllerBase
     public async Task<ActionResult<OrderDto>> ChangeStatus(
         long id,
         ChangeOrderStatusRequest request,
-        CancellationToken cancellationToken) =>
-        Ok((await service.ChangeStatusAsync(id, request.Status, cancellationToken)).ToDto());
+        CancellationToken cancellationToken)
+    {
+        var result = await service.ChangeStatusAsync(id, request.Status, cancellationToken);
+        if (request.Status == DataAccess.Models.OrderStatus.Cancelled)
+        {
+            await hubContext.Clients.All.SendAsync("VegetablesUpdated", cancellationToken: cancellationToken);
+        }
+        return Ok(result.ToDto());
+    }
 }

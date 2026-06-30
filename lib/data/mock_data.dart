@@ -2,7 +2,7 @@ import '../models/cart_item.dart';
 import '../models/user_account.dart';
 import '../models/vegetable.dart';
 
-const mockVegetables = <Vegetable>[
+final mockVegetables = <Vegetable>[
   Vegetable(
     id: 'v1',
     name: 'Cải bó xôi',
