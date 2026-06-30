@@ -25,7 +25,18 @@ class _UserShellState extends State<UserShell> {
   @override
   void initState() {
     super.initState();
+    // Realtime listener: Khởi tạo kết nối SignalR để nhận thông báo cập nhật từ server.
+    // Cách hoạt động: Gọi startRealtimeConnection từ apiClient và lắng nghe thay đổi.
+    // Chuyển dữ liệu: Khi có thông báo "VegetablesUpdated", giỏ hàng sẽ được tải lại.
+    apiClient.startRealtimeConnection();
+    apiClient.realtimeUpdateNotifier.addListener(_loadCart);
     _loadCart();
+  }
+
+  @override
+  void dispose() {
+    apiClient.realtimeUpdateNotifier.removeListener(_loadCart);
+    super.dispose();
   }
 
   Future<void> _loadCart() async {

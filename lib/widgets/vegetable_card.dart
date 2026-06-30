@@ -18,6 +18,9 @@ class VegetableCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isNew = vegetable.createdAt != null &&
+        DateTime.now().toUtc().difference(vegetable.createdAt!.toUtc()).inDays <= 7;
+
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -51,6 +54,29 @@ class VegetableCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (isNew)
+                    Positioned(
+                      right: 12,
+                      top: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.redAccent,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Text(
+                          'NEW',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),

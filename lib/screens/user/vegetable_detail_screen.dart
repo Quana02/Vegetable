@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-
 import '../../models/vegetable.dart';
+import '../../services/api_client.dart';
 import '../../widgets/network_vegetable_image.dart';
 import '../../widgets/price_text.dart';
 
@@ -10,6 +10,7 @@ class VegetableDetailScreen extends StatefulWidget {
     required this.vegetable,
     required this.onAddToCart,
   });
+
   final Vegetable vegetable;
   final void Function(Vegetable vegetable, int quantity) onAddToCart;
 
@@ -19,9 +20,39 @@ class VegetableDetailScreen extends StatefulWidget {
 
 class _VegetableDetailScreenState extends State<VegetableDetailScreen> {
   int _quantity = 1;
+  late Vegetable _vegetable;
+
+  @override
+  void initState() {
+    super.initState();
+    _vegetable = widget.vegetable;
+    // Realtime listener: Lắng nghe cập nhật sản phẩm khi có thay đổi từ DB.
+    apiClient.realtimeUpdateNotifier.addListener(_onRealtimeUpdate);
+  }
+
+  @override
+  void dispose() {
+    apiClient.realtimeUpdateNotifier.removeListener(_onRealtimeUpdate);
+    super.dispose();
+  }
+
+  Future<void> _onRealtimeUpdate() async {
+    try {
+      final updated = await apiClient.getVegetableById(_vegetable.id);
+      if (mounted) {
+        setState(() {
+          _vegetable = updated;
+          // Nếu tồn kho giảm xuống thấp hơn số lượng đang chọn, điều chỉnh lại.
+          if (_quantity > _vegetable.stock) {
+            _quantity = _vegetable.stock > 0 ? _vegetable.stock : 1;
+          }
+        });
+      }
+    } catch (_) {}
+  }
 
   Widget _info() {
-    final vegetable = widget.vegetable;
+    final vegetable = _vegetable;
     return Padding(
       padding: const EdgeInsets.all(28),
       child: Column(
@@ -149,7 +180,7 @@ class _VegetableDetailScreenState extends State<VegetableDetailScreen> {
                   child: AspectRatio(
                     aspectRatio: 1.05,
                     child: NetworkVegetableImage(
-                      url: widget.vegetable.imageUrl,
+                      url: _vegetable.imageUrl,
                     ),
                   ),
                 );

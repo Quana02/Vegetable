@@ -49,7 +49,8 @@ public sealed record VegetableDto(
     string Unit,
     int Stock,
     string? ImageUrl,
-    bool IsActive);
+    bool IsActive,
+    DateTime CreatedAt);
 
 public sealed record VegetableUpsertRequest(
     int CategoryId,
@@ -153,7 +154,8 @@ public static class ApiMapper
         vegetable.Unit,
         vegetable.Stock,
         vegetable.ImageUrl,
-        vegetable.IsActive);
+        vegetable.IsActive,
+        vegetable.CreatedAt);
 
     public static CartDto ToDto(this Cart cart)
     {
