@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../models/vegetable.dart';
 import '../../services/api_client.dart';
@@ -13,6 +14,8 @@ class VegetableManagementScreen extends StatefulWidget {
   State<VegetableManagementScreen> createState() =>
       _VegetableManagementScreenState();
 }
+
+enum _ImageInputMode { gallery, link }
 
 class _VegetableManagementScreenState extends State<VegetableManagementScreen> {
   List<Vegetable> _vegetables = [];
@@ -339,6 +342,7 @@ class _VegetableFormDialog extends StatefulWidget {
 
 class _VegetableFormDialogState extends State<_VegetableFormDialog> {
   final _formKey = GlobalKey<FormState>();
+  final _imagePicker = ImagePicker();
   late final TextEditingController _name = TextEditingController(
     text: widget.vegetable?.name,
   );
@@ -362,9 +366,21 @@ class _VegetableFormDialogState extends State<_VegetableFormDialog> {
         widget.vegetable?.imageUrl ??
         'https://images.unsplash.com/photo-1576045057995-568f588f82fb?w=900',
   );
+  late _ImageInputMode _imageInputMode =
+      _imageUrl.text.startsWith('http://') ||
+          _imageUrl.text.startsWith('https://')
+      ? _ImageInputMode.link
+      : _ImageInputMode.gallery;
+
+  @override
+  void initState() {
+    super.initState();
+    _imageUrl.addListener(_refreshImagePreview);
+  }
 
   @override
   void dispose() {
+    _imageUrl.removeListener(_refreshImagePreview);
     for (final controller in [
       _name,
       _category,
@@ -377,6 +393,10 @@ class _VegetableFormDialogState extends State<_VegetableFormDialog> {
       controller.dispose();
     }
     super.dispose();
+  }
+
+  void _refreshImagePreview() {
+    if (mounted) setState(() {});
   }
 
   void _save() {
@@ -395,6 +415,15 @@ class _VegetableFormDialogState extends State<_VegetableFormDialog> {
         stock: int.parse(_stock.text),
       ),
     );
+  }
+
+  Future<void> _pickImage() async {
+    final image = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+    );
+    if (image == null) return;
+    _imageUrl.text = image.path;
   }
 
   @override
@@ -458,8 +487,57 @@ class _VegetableFormDialogState extends State<_VegetableFormDialog> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
-                  controller: _imageUrl,
+                SegmentedButton<_ImageInputMode>(
+                  segments: const [
+                    ButtonSegment(
+                      value: _ImageInputMode.gallery,
+                      icon: Icon(Icons.photo_library_outlined),
+                      label: Text('Thư viện'),
+                    ),
+                    ButtonSegment(
+                      value: _ImageInputMode.link,
+                      icon: Icon(Icons.link),
+                      label: Text('Link'),
+                    ),
+                  ],
+                  selected: {_imageInputMode},
+                  onSelectionChanged: (values) {
+                    setState(() => _imageInputMode = values.first);
+                  },
+                ),
+                const SizedBox(height: 12),
+                if (_imageUrl.text.trim().isNotEmpty) ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: NetworkVegetableImage(url: _imageUrl.text.trim()),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                if (_imageInputMode == _ImageInputMode.gallery) ...[
+                  OutlinedButton.icon(
+                    onPressed: _pickImage,
+                    icon: const Icon(Icons.photo_library_outlined),
+                    label: Text(
+                      _imageUrl.text.trim().isEmpty
+                          ? 'Chọn ảnh trong thư viện'
+                          : 'Đổi ảnh trong thư viện',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _imageUrl,
+                    readOnly: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Đường dẫn ảnh đã chọn',
+                    ),
+                    validator: _required,
+                  ),
+                ] else
+                  TextFormField(
+                    controller: _imageUrl,
                   decoration: const InputDecoration(labelText: 'URL hình ảnh'),
                   validator: _required,
                 ),

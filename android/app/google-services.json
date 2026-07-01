@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "366296665013",
+    "project_id": "vegetable-f8839",
+    "storage_bucket": "vegetable-f8839.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:366296665013:android:fedf6cd5d8203e01da27fc",
+        "android_client_info": {
+          "package_name": "com.example.vegetable_project"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDJHdAok9_YHCVYqKRyT1g9g1KK3ycBB3g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

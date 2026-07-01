@@ -73,6 +73,15 @@ class ApiClient {
     return UserAccount.fromJson(_decodeObject(response));
   }
 
+  Future<UserAccount> googleLogin(String idToken) async {
+    final response = await _client.post(
+      _uri('/api/auth/google-login'),
+      headers: _headers,
+      body: jsonEncode({'idToken': idToken}),
+    );
+    return UserAccount.fromJson(_decodeObject(response));
+  }
+
   Future<UserAccount> register(
     String fullName,
     String email,

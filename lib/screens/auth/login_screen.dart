@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/user_account.dart';
 import '../../services/api_client.dart';
+import '../../services/google_auth_service.dart';
 import '../../theme/app_theme.dart';
 import '../admin/admin_shell.dart';
 import '../staff/staff_shell.dart';
@@ -17,9 +18,8 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController(text: 'demo@greenbasket.vn');
-  final _passwordController = TextEditingController(text: '123456');
-  UserRole _role = UserRole.user;
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _loading = false;
 
@@ -34,16 +34,12 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
     try {
-      final account = await apiClient.demoLogin(_role);
+      final account = await apiClient.login(
+        _emailController.text.trim(),
+        _passwordController.text,
+      );
       if (!mounted) return;
-      final page = switch (account.role) {
-        UserRole.user => UserShell(account: account),
-        UserRole.staff => StaffShell(account: account),
-        UserRole.admin => AdminShell(account: account),
-      };
-      Navigator.of(
-        context,
-      ).pushReplacement(MaterialPageRoute(builder: (_) => page));
+      _openHome(account);
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -53,6 +49,36 @@ class _LoginScreenState extends State<LoginScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _loginWithGoogle() async {
+    setState(() => _loading = true);
+    try {
+      final idToken = await googleAuthService.signInWithGoogleAndGetIdToken();
+      if (idToken == null) return;
+      final account = await apiClient.googleLogin(idToken);
+      if (!mounted) return;
+      _openHome(account);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _openHome(UserAccount account) {
+    final page = switch (account.role) {
+      UserRole.user => UserShell(account: account),
+      UserRole.staff => StaffShell(account: account),
+      UserRole.admin => AdminShell(account: account),
+    };
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (_) => page));
   }
 
   @override
@@ -137,29 +163,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ? 'Mật khẩu tối thiểu 6 ký tự'
                                 : null,
                           ),
-                          const SizedBox(height: 16),
-                          DropdownButtonFormField<UserRole>(
-                            initialValue: _role,
-                            decoration: const InputDecoration(
-                              labelText: 'Đăng nhập với vai trò',
-                              prefixIcon: Icon(Icons.badge_outlined),
-                            ),
-                            items: [
-                              for (final role in UserRole.values)
-                                DropdownMenuItem(
-                                  value: role,
-                                  child: Text(role.label),
-                                ),
-                            ],
-                            onChanged: (value) =>
-                                setState(() => _role = value ?? UserRole.user),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            'Chế độ demo: chọn vai trò để xem giao diện tương ứng.',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: AppTheme.primary),
-                          ),
                           const SizedBox(height: 24),
                           FilledButton(
                             onPressed: _loading ? null : _login,
@@ -185,7 +188,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 18),
                           OutlinedButton.icon(
-                            onPressed: _loading ? null : _login,
+                            onPressed: _loading ? null : _loginWithGoogle,
                             icon: const Text(
                               'G',
                               style: TextStyle(
@@ -194,7 +197,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 color: Colors.blue,
                               ),
                             ),
-                            label: const Text('Tiếp tục với Google'),
+                            label: Text('Tiếp tục với Google'),
                           ),
                           const SizedBox(height: 20),
                           Wrap(

@@ -1,4 +1,7 @@
 using DataAccess.Models;
+using DataAccess;
+using FirebaseAdmin;
+using FirebaseAdmin.Auth;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Repositories;
@@ -10,6 +13,7 @@ namespace vegetable_api.Controllers;
 [ApiController]
 [Route("api/auth")]
 public class AuthController(
+    IDataAccess dataAccess,
     IAccountRepository accountRepository,
     IRepository<Role> roleRepository,
     IAccountService accountService,
@@ -35,6 +39,79 @@ public class AuthController(
         }
 
         return Ok(account.ToDto());
+    }
+
+    [HttpPost("google-login")]
+    public async Task<ActionResult<AccountDto>> GoogleLogin(
+        GoogleLoginRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (FirebaseApp.DefaultInstance is null)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                message = "Firebase Admin chÆ°a Ä‘Æ°á»£c cáº¥u hÃ¬nh. HÃ£y thiáº¿t láº­p Firebase:ServiceAccountPath hoáº·c GOOGLE_APPLICATION_CREDENTIALS."
+            });
+        }
+
+        FirebaseToken token;
+        try
+        {
+            token = await FirebaseAuth.DefaultInstance.VerifyIdTokenAsync(request.IdToken);
+        }
+        catch
+        {
+            return Unauthorized(new { message = "Token Google/Firebase khÃ´ng há»£p lá»‡." });
+        }
+
+        var email = ClaimString(token, "email")?.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return Unauthorized(new { message = "TÃ i khoáº£n Google chÆ°a cÃ³ email há»£p lá»‡." });
+        }
+
+        var fullName =
+            ClaimString(token, "name") ??
+            ClaimString(token, "display_name") ??
+            email.Split('@')[0];
+        var avatarUrl = ClaimString(token, "picture");
+
+        var account = await accountRepository.GetByEmailAsync(email, tracking: true, cancellationToken);
+        if (account is not null)
+        {
+            if (!account.IsActive)
+            {
+                return Unauthorized(new { message = "TÃ i khoáº£n Ä‘Ã£ bá»‹ khoÃ¡." });
+            }
+
+            if (string.IsNullOrWhiteSpace(account.GoogleSubject))
+            {
+                account.GoogleSubject = token.Uid;
+                account.AuthProvider = AuthProvider.Google;
+                account.AvatarUrl ??= avatarUrl;
+                account.UpdatedAt = DateTime.UtcNow;
+                await dataAccess.SaveChangesAsync(cancellationToken);
+            }
+            else if (account.GoogleSubject != token.Uid)
+            {
+                return Unauthorized(new { message = "Email nÃ y Ä‘Ã£ liÃªn káº¿t vá»›i tÃ i khoáº£n Google khÃ¡c." });
+            }
+
+            return Ok(account.ToDto());
+        }
+
+        account = new Account
+        {
+            FullName = fullName,
+            Email = email,
+            AvatarUrl = avatarUrl,
+            RoleId = 1,
+            AuthProvider = AuthProvider.Google,
+            GoogleSubject = token.Uid,
+            IsActive = true
+        };
+        account = await accountService.CreateAsync(account, cancellationToken);
+        return Ok((await accountService.GetByIdAsync(account.Id, cancellationToken)).ToDto());
     }
 
     [HttpPost("demo-login")]
@@ -95,4 +172,7 @@ public class AuthController(
         account = await accountService.CreateAsync(account, cancellationToken);
         return CreatedAtAction(nameof(Register), (await accountService.GetByIdAsync(account.Id, cancellationToken)).ToDto());
     }
+
+    private static string? ClaimString(FirebaseToken token, string key) =>
+        token.Claims.TryGetValue(key, out var value) ? value?.ToString() : null;
 }
