@@ -1,29 +1,14 @@
-using FirebaseAdmin;
-using Google.Apis.Auth.OAuth2;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Identity;
-using System.Text.Json.Serialization;
 using DataAccess;
 using DataAccess.Models;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Repositories;
 using Services;
+using System.Text.Json.Serialization;
 using vegetable_api.Hubs;
 using vegetable_api.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
-
-var firebaseServiceAccountPath = builder.Configuration["Firebase:ServiceAccountPath"];
-var googleCredentialsPath = Environment.GetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS");
-var credentialPath = !string.IsNullOrWhiteSpace(firebaseServiceAccountPath)
-    ? firebaseServiceAccountPath
-    : googleCredentialsPath;
-if (FirebaseApp.DefaultInstance is null && !string.IsNullOrWhiteSpace(credentialPath) && File.Exists(credentialPath))
-{
-    FirebaseApp.Create(new AppOptions
-    {
-        Credential = GoogleCredential.FromFile(credentialPath)
-    });
-}
 
 // Add services to the container.
 builder.Services.AddControllers().AddJsonOptions(options =>

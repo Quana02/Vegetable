@@ -12,7 +12,20 @@
           "package_name": "com.example.vegetable_project"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "366296665013-hr2mv3k9lorru16l9e4e244juu46lil1.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.vegetable_project",
+            "certificate_hash": "f7581dafa374bf64e79571ee309f45ad6f1f3fa7"
+          }
+        },
+        {
+          "client_id": "366296665013-6or11cd5t41tqu0oekstr8t0kaah7t5i.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDJHdAok9_YHCVYqKRyT1g9g1KK3ycBB3g"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "366296665013-6or11cd5t41tqu0oekstr8t0kaah7t5i.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

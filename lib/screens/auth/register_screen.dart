@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../services/api_client.dart';
+import '../../services/google_auth_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -119,10 +120,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               if (!_formKey.currentState!.validate()) return;
                               setState(() => _loading = true);
                               try {
-                                await apiClient.register(
-                                  _nameController.text.trim(),
-                                  _emailController.text.trim(),
-                                  _passwordController.text,
+                                final fullName = _nameController.text.trim();
+                                final idToken = await firebaseAuthService
+                                    .registerWithEmailAndGetIdToken(
+                                      fullName: fullName,
+                                      email: _emailController.text.trim(),
+                                      password: _passwordController.text,
+                                    );
+                                await apiClient.firebaseLogin(
+                                  idToken,
+                                  fullName: fullName,
                                 );
                                 if (!context.mounted) return;
                                 ScaffoldMessenger.of(context).showSnackBar(
