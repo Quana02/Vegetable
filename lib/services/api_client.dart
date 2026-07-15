@@ -82,6 +82,15 @@ class ApiClient {
     return UserAccount.fromJson(_decodeObject(response));
   }
 
+  Future<UserAccount> firebaseLogin(String idToken, {String? fullName}) async {
+    final response = await _client.post(
+      _uri('/api/auth/firebase-login'),
+      headers: _headers,
+      body: jsonEncode({'idToken': idToken, 'fullName': fullName}),
+    );
+    return UserAccount.fromJson(_decodeObject(response));
+  }
+
   Future<UserAccount> register(
     String fullName,
     String email,

@@ -34,10 +34,13 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
     try {
-      final account = await apiClient.login(
-        _emailController.text.trim(),
-        _passwordController.text,
+      final email = _emailController.text.trim();
+      final password = _passwordController.text;
+      final idToken = await firebaseAuthService.signInWithEmailAndGetIdToken(
+        email,
+        password,
       );
+      final account = await apiClient.firebaseLogin(idToken);
       if (!mounted) return;
       _openHome(account);
     } catch (error) {
@@ -54,7 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _loginWithGoogle() async {
     setState(() => _loading = true);
     try {
-      final idToken = await googleAuthService.signInWithGoogleAndGetIdToken();
+      final idToken = await firebaseAuthService.signInWithGoogleAndGetIdToken();
       if (idToken == null) return;
       final account = await apiClient.googleLogin(idToken);
       if (!mounted) return;

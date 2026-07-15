@@ -17,6 +17,7 @@ public sealed record AccountDto(
 public sealed record LoginRequest(string Email, string Password);
 public sealed record DemoLoginRequest(string Role);
 public sealed record GoogleLoginRequest(string IdToken);
+public sealed record FirebaseLoginRequest(string IdToken, string? FullName);
 public sealed record RegisterRequest(string FullName, string Email, string Password);
 
 public sealed record CreateAccountRequest(
